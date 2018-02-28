@@ -1,0 +1,16 @@
+[Unit]
+Description=r10k webhook service
+After=network.target
+
+[Service]
+# HOME variable is needed for git to retrieve 
+# credentials from helper's storage (git credentials.helper store)
+Environment=HOME=/root
+# Token that gitlab has to send for redployment to occur
+Environment=SECRET=<put a secret here>
+ExecStart=/usr/local/bin/r10k-webhook
+KillMode=mixed
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
