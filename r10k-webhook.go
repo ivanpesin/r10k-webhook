@@ -17,6 +17,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+const appVersion = "2.0"
+
 var buildTime string
 var buildCommit string
 
@@ -207,7 +209,7 @@ func main() {
 	}
 
 	log.SetFlags(log.Ldate | log.Ltime | log.LUTC)
-	log.Printf("Starting r10k-webhook on %s", lsock)
+	log.Printf("Starting r10k-webhook v%s on %s", appVersion, lsock)
 	log.Printf("Build time  : %s", buildTime)
 	log.Printf("Commit hash : %s", buildCommit)
 	log.Printf("Secret is set to: %s", secret)
