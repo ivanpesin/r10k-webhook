@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"fmt"
@@ -11,13 +12,14 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	uuid "github.com/satori/go.uuid"
 )
 
-const appVersion = "2.0"
+const appVersion = "2.1"
 
 var buildTime string
 var buildCommit string
@@ -169,12 +171,20 @@ func refreshRepo(c *gin.Context) {
 		return
 	}
 
-	cmd := exec.Command("/usr/bin/env",
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "/usr/bin/env",
 		strings.Fields(command)...)
 	output, err := cmd.CombinedOutput()
-	if err != nil {
+	if ctx.Err() == context.DeadlineExceeded || err != nil {
+
 		log.Printf("[%s] E: r10k execution failed", rid)
-		log.Printf("[%s] E:    error: %v", rid, err)
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Printf("[%s] E: r10k took too long to finish and was killed", rid)
+		} else {
+			log.Printf("[%s] E:    error: %v", rid, err)
+		}
 		log.Printf("[%s] E:   output: %v", rid, string(output))
 
 		c.AbortWithStatusJSON(http.StatusInternalServerError,
