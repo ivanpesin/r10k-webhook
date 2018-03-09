@@ -178,6 +178,7 @@ func refreshRepo(c *gin.Context) {
 		return
 	}
 
+	log.Printf("[%s] Checking r10k is not running ...", rid)
 	mu.Lock()
 	defer mu.Unlock()
 
