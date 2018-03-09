@@ -181,6 +181,7 @@ func refreshRepo(c *gin.Context) {
 	log.Printf("[%s] Checking r10k is not running ...", rid)
 	mu.Lock()
 	defer mu.Unlock()
+	log.Printf("[%s] Spawning r10k ...", rid)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.timeout)*time.Second)
 	defer cancel()
