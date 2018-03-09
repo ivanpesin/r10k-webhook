@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,9 +26,14 @@ const appVersion = "2.1"
 var buildTime string
 var buildCommit string
 
-var secret = os.Getenv("SECRET")
-var command = os.Getenv("R10K_CMD")
-var lsock = os.Getenv("LISTEN")
+var config struct {
+	secret  string // Env SECRET
+	command string // Env R10K_CMD
+	timeout int    // Env R10K_TMOUT
+	lsock   string // Env LISTEN
+}
+
+var mu sync.Mutex
 var defaultCommand = "/opt/puppetlabs/puppet/bin/r10k deploy environment -pv info"
 
 // ---
@@ -71,7 +78,7 @@ func validateGitLabRequest(rid string, c *gin.Context) error {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "message": "Invalid event"})
 		return fmt.Errorf("Invalid event")
 	}
-	if c.GetHeader("X-Gitlab-Token") != secret {
+	if c.GetHeader("X-Gitlab-Token") != config.secret {
 		log.Printf("[%s] E: Invalid token", rid)
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"status": http.StatusForbidden, "message": "Invalid token"})
 		return fmt.Errorf("Invalid token")
@@ -171,11 +178,14 @@ func refreshRepo(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	mu.Lock()
+	defer mu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.timeout)*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "/usr/bin/env",
-		strings.Fields(command)...)
+		strings.Fields(config.command)...)
 	output, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded || err != nil {
 
@@ -209,20 +219,33 @@ func refreshRepo(c *gin.Context) {
 	log.Printf("[%s] Completed", rid)
 }
 
+func init() {
+	var err error
+
+	config.secret = os.Getenv("SECRET")
+	config.lsock = os.Getenv("LISTEN")
+	config.command = os.Getenv("R10K_CMD")
+	config.timeout, err = strconv.Atoi(os.Getenv("R10K_TMOUT"))
+	if err != nil {
+		config.timeout = 1
+	}
+
+	if config.command == "" {
+		config.command = defaultCommand
+	}
+	if config.lsock == "" {
+		config.lsock = ":8000"
+	}
+
+}
+
 func main() {
 
-	if command == "" {
-		command = defaultCommand
-	}
-	if lsock == "" {
-		lsock = ":8000"
-	}
-
 	log.SetFlags(log.Ldate | log.Ltime | log.LUTC)
-	log.Printf("Starting r10k-webhook v%s on %s", appVersion, lsock)
+	log.Printf("Starting r10k-webhook v%s on %s", appVersion, config.lsock)
 	log.Printf("Build time  : %s", buildTime)
 	log.Printf("Commit hash : %s", buildCommit)
-	log.Printf("Secret is set to: %s", secret)
+	log.Printf("Secret is set to: %s", config.secret)
 
 	r := gin.Default()
 
@@ -231,5 +254,5 @@ func main() {
 	v1.GET("/", showInfo)
 	v1.POST("/refresh", refreshRepo)
 
-	log.Fatal(r.Run(lsock))
+	log.Fatal(r.Run(config.lsock))
 }

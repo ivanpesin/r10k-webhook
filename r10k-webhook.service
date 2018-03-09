@@ -5,12 +5,14 @@ After=network.target
 [Service]
 # HOME variable is needed for git to retrieve 
 # credentials from helper's storage (git credentials.helper store)
-Environment=HOME=/root
+Environment=HOME=/opt/r10k
 # Token that gitlab has to send for redployment to occur
 Environment=SECRET=<put a secret here>
 ExecStart=/usr/local/bin/r10k-webhook
 KillMode=mixed
 Restart=on-failure
+User=r10k
+Group=r10k
 
 [Install]
 WantedBy=multi-user.target
