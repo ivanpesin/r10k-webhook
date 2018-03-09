@@ -227,7 +227,7 @@ func init() {
 	config.command = os.Getenv("R10K_CMD")
 	config.timeout, err = strconv.Atoi(os.Getenv("R10K_TMOUT"))
 	if err != nil {
-		config.timeout = 1
+		config.timeout = 60
 	}
 
 	if config.command == "" {
