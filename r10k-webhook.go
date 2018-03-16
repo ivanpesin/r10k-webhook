@@ -190,7 +190,7 @@ func refreshRepo(c *gin.Context) {
 		strings.Fields(config.command)...)
 	output, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded || err != nil {
-
+		cmd.Process.Kill()
 		log.Printf("[%s] E: r10k execution failed", rid)
 		if ctx.Err() == context.DeadlineExceeded {
 			log.Printf("[%s] E: r10k took too long to finish and was killed", rid)
