@@ -186,8 +186,8 @@ func refreshRepo(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.timeout)*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "/usr/bin/env",
-		strings.Fields(config.command)...)
+	cmd := exec.CommandContext(ctx, strings.Fields(config.command)[0],
+		strings.Fields(config.command)[1:]...)
 	output, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded || err != nil {
 		cmd.Process.Kill()
