@@ -192,7 +192,7 @@ func refreshRepo(c *gin.Context) {
 	if ctx.Err() == context.DeadlineExceeded || err != nil {
 		log.Printf("[%s] E: r10k execution failed", rid)
 		if ctx.Err() == context.DeadlineExceeded {
-			ps := exec.Command("/bin/ps", "-flp", fmt.Sprintf("%d", cmd.Process.Pid))
+			ps := exec.Command("/bin/ps", "-ef")
 			psout, _ := ps.CombinedOutput()
 			log.Printf("[%s] ps: %s", rid, psout)
 			log.Printf("[%s] E: Killing PID = %d", rid, cmd.Process.Pid)
