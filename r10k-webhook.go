@@ -34,6 +34,7 @@ var config struct {
 }
 
 var mu sync.Mutex
+var cnt = 0
 var defaultCommand = "/opt/puppetlabs/puppet/bin/r10k deploy environment -pv info"
 
 // ---
@@ -178,8 +179,21 @@ func refreshRepo(c *gin.Context) {
 		return
 	}
 
+	if cnt > 1 {
+		// we already have a waiting goroutine for deploy, no need to stack more
+		c.JSON(http.StatusOK, gin.H{
+			"status": http.StatusOK,
+			"data": gin.H{
+				"message": "no changes necessary, deployment in progress\b",
+			},
+		})
+		log.Printf("[%s] No changes necessary, deployment in progress", rid)
+		return
+	}
 	log.Printf("[%s] Checking r10k is not running ...", rid)
+	cnt++
 	mu.Lock()
+	defer func() { cnt-- }()
 	defer mu.Unlock()
 	log.Printf("[%s] Spawning r10k ...", rid)
 
@@ -192,13 +206,8 @@ func refreshRepo(c *gin.Context) {
 	if ctx.Err() == context.DeadlineExceeded || err != nil {
 		log.Printf("[%s] E: r10k execution failed", rid)
 		if ctx.Err() == context.DeadlineExceeded {
-			ps := exec.Command("/bin/ps", "-ef")
-			psout, _ := ps.CombinedOutput()
-			log.Printf("[%s] ps: %s", rid, psout)
-			log.Printf("[%s] E: Killing PID = %d", rid, cmd.Process.Pid)
-
-			cmd.Process.Kill()
 			log.Printf("[%s] E: r10k took too long to finish and was killed.", rid)
+
 		} else {
 			log.Printf("[%s] E:    error: %v", rid, err)
 		}
