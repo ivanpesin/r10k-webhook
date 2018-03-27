@@ -36,7 +36,7 @@ var config struct {
 }
 
 var runmu sync.Mutex
-var cntmu sync.Mutex
+var cntmu sync.RWMutex
 var cnt = 0
 var defaultCommand = "/opt/puppetlabs/puppet/bin/r10k deploy environment -pv info"
 
@@ -182,7 +182,7 @@ func refreshRepo(c *gin.Context) {
 		return
 	}
 
-	cntmu.Lock()
+	cntmu.RLock()
 	if cnt > 1 {
 		// we already have a waiting goroutine for deploy, no need to stack more
 		c.JSON(http.StatusOK, gin.H{
@@ -192,16 +192,18 @@ func refreshRepo(c *gin.Context) {
 			},
 		})
 		log.Printf("[%s] No changes necessary, deployment in progress", rid)
-		cntmu.Unlock()
+		cntmu.RUnlock()
 		return
 	}
 	log.Printf("[%s] Checking r10k is not running ...", rid)
+	cntmu.RUnlock()
 
+	cntmu.Lock()
 	cnt++
 	cntmu.Unlock()
 
 	runmu.Lock()
-	defer func() { cnt-- }()
+	defer func() { cntmu.Lock(); cnt--; cntmu.Unlock() }()
 	defer runmu.Unlock()
 	log.Printf("[%s] Spawning r10k ...", rid)
 
