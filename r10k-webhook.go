@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -212,6 +214,24 @@ func refreshRepo(c *gin.Context) {
 			log.Printf("[%s] E:    error: %v", rid, err)
 		}
 		log.Printf("[%s] E:   output: %v", rid, string(output))
+
+		// kill stray r10k processes
+		user, _ := user.Current()
+		ps := exec.Command("/bin/ps", "-fu", user.Username)
+		psout, _ := ps.CombinedOutput()
+		lines := strings.Split(string(psout), "\n")
+		for _, l := range lines {
+			f := strings.Fields(l)
+			if len(f) > 8 && f[2] == "1" && f[8] == "/opt/puppetlabs/puppet/bin/r10k" {
+				log.Printf("[%s] E: found stray r10k:", rid)
+				log.Printf("[%s]    %s", rid, l)
+				pid, err2 := strconv.Atoi(f[1])
+				if err2 == nil {
+					syscall.Kill(pid, syscall.SIGKILL)
+					log.Printf("[%s]    Killed PID = %d", rid, pid)
+				}
+			}
+		}
 
 		c.AbortWithStatusJSON(http.StatusInternalServerError,
 			gin.H{
